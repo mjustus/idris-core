@@ -35,8 +35,8 @@
 
 \newcommand{\ceil}[1]{\left\lceil #1\right\rceil}
 %\newcommand{\restrictOne}[1]{\left[ #1\right]_{\mathbb I}}
-%\newcommand{\relevance}[1]{\left\vert#1\right\vert_{\zero\one}}
-\newcommand{\relevance}[1]{\left\vert#1\right\vert}
+%\newcommand{\presence}[1]{\left\vert#1\right\vert_{\zero\one}}
+\newcommand{\presence}[1]{\left\vert#1\right\vert}
 
 \newcommand{\delete}[1]{\left\lvert #1\right\rvert}
 \newcommand{\deleteQ}[2]{\textsf{erase}^{#2}\left(#1\right)}
@@ -46,13 +46,14 @@
 \newcommand{\ENTq}[1]{\vdash^{#1}}
 \newcommand{\OF}{:}
 \newcommand{\TO}{\Rightarrow}
+\newcommand{\INq}[1]{}
 \newcommand{\OFq}[1]{\OF^{#1}}
 \newcommand{\TOq}[1]{\TO^{#1}}
 \newcommand{\EQ}{\ensuremath{\mathbin{\equiv}}}
 
 \newcommand{\EMPTY}{.}
 
-\newcommand{\checkJ}[4]{#1 \ENT #2 \OFq {#3} #4}
+\newcommand{\checkJ}[4]{#1 \ENT {#2} \in^{#3} #4}
 \newcommand{\inferJ}[4]{#1 \ENT #2 \TOq {#3} #4}
 
 \newcommand{\type}[1]{{\textcolor{type}{\textsf{#1}}}}
@@ -64,8 +65,9 @@
 \newcommand{\one}{{\textcolor{type}{1}}}
 \newcommand{\any}{{\textcolor{type}{\omega}}}
 
-\newcommand{\divQ}[2]{#1 \setminus #2}
-\newcommand{\divAny}[1]{\divQ {#1} \any}
+\newcommand{\restrictQ}[2]{#1 \setminus #2}
+\newcommand{\multQ}[2]{{#1} \cdot {#2}}
+\newcommand{\restrictAny}[1]{\restrictQ {#1} \any}
 
 \newcommand{\name}[1]{{\textcolor{neutral}{#1}}}
 \newcommand{\metaVariable}[1]{{\textcolor{meta}{#1}}}
@@ -114,107 +116,106 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \usepackage{biblatex}
-\bibliography{../references.bib}
+\bibliography{references.bib}
 
 \begin{document}
 
 \maketitle
 
-Idris features quantity annotations inspired by Atkey's QTT \cite{Atkey2018}. We extract a set of typing rules from Idris' linearity checking code for a hole-free segment of \textsf{Core}.
+We extract a set of typing rules for the hole-free fragment of Idris' new core, Yaffle\footnote{See \href{https://github.com/edwinb/Yaffle/blob/main/src/Core/Check/Typecheck.idr}{{\texttt{Core.Check.Typecheck}}} and \href{https://github.com/edwinb/Yaffle/blob/main/src/Core/Check/Linear.idr}{\texttt{Core.Check.Linear}} in repository \url{https://github.com/edwinb/Yaffle}.}
 
-% \footnote{See \url{http://strictlypositive.org/dpm/colour.html} for the rationale behind the choice of colours.} to distinguish the different categories of syntax. In brief, \type{type formers} are blue, \term{constructors} red, \definition{defined functions} green, \name{bound variables} purple, and meta-variables stay uncoloured.
-
+Idris splits the world into expressions that are present at runtime and those that may be erased after type-checking. This is enforced via quantity annotations on variables in context
 \begin{itemize}
 \item quantities $p, q \mathrel{\text{::=}} \zero, \one, \any$ with $\zero < \one < \any$
-\item contexts $\Gamma \mathrel{\text{::=}} \EMPTY \mid \Gamma, (\name x \OFq p T)$
-\item variable usage $u$ is a multiset of variables
+\item contexts $\Gamma \mathrel{\text{::=}} \EMPTY \mid \Gamma, (\name x \OFq q T)$
 \end{itemize}
+Informally, runtime-present expressions can only depend on variables at quantity $\one$ or $\any$, where $\one$-annotated variables must be used exactly once and $\any$-annotated variables can be used arbitrarily. In contrast, erased expressions have unrestricted access to all variables, including $\zero$-annotated variables.
 
-Let
+The context records the number of copies available of each variable; it does not account for exact variable usage inside the term to be checked\footnote{Unlike Atkey's QTT\cite{Atkey2018}.}. Type checking only enforces that variables usage adheres to this budget locally but, in particular, does not enforce that linear variables are used precisely once. This is left to the \hyperref[sec:linearity_checking]{linearity checker}, which runs after type checking.
 
-\begin{mathpar}
-\used p x = \begin{cases}
-\{x\} & \text{if $p = 1$}\\
-\emptyset  & \text{otherwise}
-\end{cases}
-\end{mathpar}
-
+We will frequently need to multiply quantities, turning the set of  quantities into a monoid
 \begin{mathpar}
 \begin{array}{l}
-\ceil \zero = \zero\\
-\ceil \one = \omega\\
-\ceil \omega = \omega
+\multQ \one y = y\\
+\multQ x \one = x\\\\
+\multQ \zero y = \zero\\
+\multQ x \zero = \zero\\\\
+\multQ \any \any = \any
 \end{array}
 \end{mathpar}
 
-Note that $\ceil p = \any \cdot p$
-
+When manipulating the context, we will also need a restriction operation $\restrictQ p q$, which makes $p$-annotated variables that do not support at least $q$ copies unavailable at runtime
+\begin{mathpar}
+\restrictQ p q =
+  \left\{
+    \begin{array}{ll}
+      p & \text{if $p \leq q$} \\
+      \zero & \text{otherwise}
+    \end{array}
+  \right.
+\end{mathpar}
+Concretely,
 \begin{mathpar}
 \begin{array}{l}
-\divAny \zero = \zero\\
-\divAny \one = \zero\\
-\divAny \any = \any
-\end{array}\\
-  
+\restrictQ p \zero = p\\
+\restrictQ p \one = p\\
+\restrictAny \zero = \zero\\
+\restrictAny \one = \zero\\
+\restrictAny \any = \any
+\end{array}
+\end{mathpar}
+and lifted to contexts
+\begin{mathpar}
 \begin{array}{ll}
-\divAny {\EMPTY} = \EMPTY\\
-\divAny {\Gamma, (x \OFq p T)} = \divAny \Gamma, (x \OFq {\divAny p} T)
+\restrictQ {\EMPTY} p = \EMPTY\\
+\restrictQ {\Gamma, (x \OFq q T)} p = \restrictQ \Gamma p, (x \OFq {\restrictQ q p} T)
 \end{array}
 \end{mathpar}
-
-\begin{mathpar}
-\begin{array}{l}
-\relevance \zero = \zero\\
-\relevance \one = \one\\
-\relevance \any = \one
-\end{array}
-\end{mathpar}
+Note that $\Gamma = \restrictQ \Gamma \zero = \restrictQ \Gamma \one$.
 
 \section{Quantity-annotated judgements}
 
-Bidirectional discipline. Judgement $\checkJ \Gamma t p A$ amounts to checking that term $t$ has type $A$ in context $\Gamma$ at {\em ambient} quantity $p$. We write the corresponding type inference judgement as $\inferJ \Gamma t p A$.
+The type-checker follows a bidirectional discipline. Judgement $\checkJ \Gamma t p A$ amounts to checking that term $t$ has type $A$ in context $\Gamma$ at {\em ambient} quantity $p$. The corresponding inference judgement will be written as $\inferJ \Gamma t p A$.
 
-optimisation
-
-\section{Term: \texttt{linearCheck}}
-
-Judgment $\Gamma \ENTq p t \leadsto {t'} \USES u$:
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% The erasure flag $e$ (\texttt{erase}) switches between two modes            %
-%                                                                             %
-% \begin{itemize}                                                             %
-% \item {\keep} (\texttt{erase = false}): linearity check, erasure disabled   %
-% \item {\erase} (\texttt{erase = true}): linearity disabled, erasure enabled %
-% \end{itemize}                                                               %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
+The ambient quantity has dual purpose. Similar to QTT's erased/present flag\cite{Atkey2018}, it controls whether the expression to be checked is considered to be erased ($\zero$) or present ($\one$ or $\any$). It also acts as cost multiplier for variable accesses: suppose we want to infer the type of an application $\App \any f t$ at ambient quantity $\one$ and already know that $\inferJ \Gamma f \one {\PiT x \any A B}$. We now not only need to check that argument $t$ has type $A$ but also that we are allowed to make $\any$ copies of $t$. One way to achieve this would be to restrict the context to those variables that support $\any$ copies, i.e. $\checkJ {\restrictAny \Gamma} t {\one} A$. Idris, however, uses a variable rule that requires any accessed variable to have quantity larger or equal to ambient quanitity
 \begin{mathpar}
-\inferrule*[Right=term]{
-  \Gamma \ENTq p t \leadsto {t'} \USES u\\
-  \Gamma \ENTq p u
+\inferrule*[Right=Var]{
+  (\name x \OFq q A) \in \Gamma\\
+  p \leq q
 } {
-  \Gamma \ENTq p t \leadsto {t'}
+  \inferJ \Gamma {\name x} p A
 }
 \end{mathpar}
-
-\section{Context: \texttt{checkEnvUsage}}
+allowing us to use $\checkJ \Gamma t \any A$ instead. In fact, we should always have $$\checkJ \Gamma t {p} A \iff \checkJ {\restrictQ \Gamma p} t {\presence p} A$$ where $\presence p$ squashes quantity $p$ down to just its presence
 \begin{mathpar}
-\inferrule*[Right=ctx-{[]}]{ } {
-  \EMPTY \ENTq p u
-}\\
-
-\inferrule*[Right=ctx-{::}]{
-  \Gamma \ENTq p u\\
-  p q = \one \implies u(x) = 1
-} {
-  \Gamma, (x \OFq q T) \ENTq p u
-}
-
+\begin{array}{l}
+\presence \zero = \zero\\
+\presence \one = \one\\
+\presence \any = \one
+\end{array}
 \end{mathpar}
 
-\section{Subterms: \texttt{lcheck}, \texttt{lcheckBinder}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% variable rule would be             %
+%                                    %
+% \begin{mathpar}                    %
+% \inferrule*[Right=Var-$\zero$]{    %
+%   (\name x \OFq q A) \in \Gamma    %
+% } {                                %
+%   \inferJ \Gamma {\name x} \zero A %
+% }                                  %
+% \\                                 %
+% \inferrule*[Right=Var-$\one$]{     %
+%   (\name x \OFq q A) \in \Gamma\\  %
+%   q \not= \zero                    %
+% } {                                %
+%   \inferJ \Gamma {\name x} \one A  %
+% }                                  %
+% \end{mathpar}                      %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Type checking}}
 
 \subsection{Variables}
 
@@ -223,7 +224,7 @@ Judgment $\Gamma \ENTq p t \leadsto {t'} \USES u$:
   (\name x \OFq q A) \in \Gamma\\
   p \leq q
 } {
-  \inferJ \Gamma {\name x} q A
+  \inferJ \Gamma {\name x} p A
 }
 \end{mathpar}
 
@@ -237,7 +238,7 @@ Judgment $\Gamma \ENTq p t \leadsto {t'} \USES u$:
   \Gamma \ENTq p \PiT x q A B \leadsto \PiT x q {A'} {B'} \USES u \smallsetminus \name x
 }
 \end{mathpar}
-Note: when $p$ is runtime-relevant, $B$ can only mention argument $x$ if it has quantity $\any$.
+Note: when $p$ is runtime-present, $B$ can only mention argument $x$ if it has quantity $\any$.
 
 \begin{mathpar}
 \inferrule*[Right=Pi-hack]{
@@ -265,7 +266,7 @@ Furthermore, $q = \zero$ forces $\ceil p q = \zero$, meaning whenever $\Gamma \E
 
 \begin{mathpar}
 \inferrule*[Right=Lam]{
-  \checkJ {\divQ \Gamma p, (\name x \OFq q A)} t {\relevance p} B
+  \checkJ {\restrictQ \Gamma p, (\name x \OFq q A)} t {\presence p} B
 } {
   \checkJ \Gamma {\lam x t} p {\PiT x q A B}
 }
@@ -281,7 +282,8 @@ Furthermore, $q = \zero$ forces $\ceil p q = \zero$, meaning whenever $\Gamma \E
 }
 \end{mathpar}
 
-Note: no usage annotation on application.
+further optimisation: only restrict the context when introduction a linear variable to the context at ambient quantity $\any$.
+not replicate in the rules
 
 \subsection{Let binding}
 \begin{mathpar}
@@ -390,6 +392,23 @@ Note: we do not erase unused let-bound terms.
   {} \ENT {\Def f q T t} \leadsto {\Def f q {T'} {t'}}
 }
 \end{mathpar}
+
+\section{Linearity checking}\label{sec:linearity_checking}
+
+
+\begin{itemize}
+\item variable usage $u$ is a multiset of variables
+\end{itemize}
+
+Let
+
+\begin{mathpar}
+\used p x = \begin{cases}
+\{x\} & \text{if $p = 1$}\\
+\emptyset  & \text{otherwise}
+\end{cases}
+\end{mathpar}
+
 
 \printbibliography
 
