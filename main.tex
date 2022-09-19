@@ -53,8 +53,11 @@
 
 \newcommand{\EMPTY}{.}
 
-\newcommand{\checkJ}[4]{#1 \ENT {#2} \in^{#3} #4}
-\newcommand{\inferJ}[4]{#1 \ENT #2 \TOq {#3} #4}
+\newcommand{\checkJ}[5]{#1; #2 \ENT {#3} \in^{#4} #5}
+\newcommand{\inferJ}[4]{\Sigma; #1 \ENT #2 \TOq {#3} #4}
+\newcommand{\convJ}[5]{\Sigma; #1 \ENT {#2} = {#3} \OFq {#4} #5}
+
+\newcommand{\linCheckJ}[3]{\Sigma; #1 \ENTq {#2} {#3} \USES \emptyset}
 
 \newcommand{\type}[1]{{\textcolor{type}{\textsf{#1}}}}
 \newcommand{\term}[1]{{\textcolor{term}{\textsf{#1}}}}
@@ -80,12 +83,15 @@
 \newcommand{\Sub}[3]{#1 [#2/{\name #3}]}
 \newcommand{\AppTele}[3]{\term{App}\left(#1\overline{,^{#2} {#3}}\right)}
 \newcommand{\MetaApp}[3]{\term{MetaApp}\left(\metaVariable {#1} \overline{,^{#2} {#3}}\right)}
-\newcommand{\TyCon}[2]{\type{TyCon}\left({\definition {#1}},#2\right)}
-\newcommand{\DataCon}[2]{\term{DataCon}\left({\definition {#1}},#2\right)}
+\newcommand{\TyCon}[1]{\type{TyCon}\left({\definition {#1}}\right)}
+\newcommand{\DataCon}[1]{\term{DataCon}\left({\definition {#1}}\right)}
 \newcommand{\lam}[1]{\textcolor{term}{\lambda} {\name #1}.\,}
 \newcommand{\Let}[5]{\term{let}\, {\name #1} \OFq {#2} {#3} = {#4} \mathbin{\term{in}} {#5}}
+\newcommand{\Inf}[1]{\overline{#1}}
+\newcommand{\Annot}[2]{\left(#1 \OF #2\right)}
 
 \newcommand{\Def}[4]{\definition{#1} \OFq {#2} {#3} = {#4}}
+\newcommand{\checkDefJ}[1]{{} \ENT {#1}}
 
 \newcommand{\mult}{\mathbin{\textcolor{type}{\times}}}
 \newcommand{\proj}[1]{\mathop{\textcolor{definition}{\pi_{#1}}}}
@@ -175,9 +181,9 @@ Note that $\Gamma = \restrictQ \Gamma \zero = \restrictQ \Gamma \one$.
 
 \section{Quantity-annotated judgements}
 
-The type-checker follows a bidirectional discipline. Judgement $\checkJ \Gamma t p A$ amounts to checking that term $t$ has type $A$ in context $\Gamma$ at {\em ambient} quantity $p$. The corresponding inference judgement will be written as $\inferJ \Gamma t p A$.
+The type-checker follows a bidirectional discipline. Judgement $\checkJ \Sigma \Gamma t p A$ amounts to checking that term $t$ has type $A$ in context $\Gamma$ at {\em ambient} quantity $p$. The corresponding inference judgement will be written as $\inferJ \Gamma t p A$.
 
-The ambient quantity has dual purpose. Similar to QTT's erased/present flag~\cite{Atkey2018}, it controls whether the expression to be checked is considered to be erased ($\zero$) or present ($\one$ or $\any$). It also acts as cost multiplier for variable accesses: suppose we want to infer the type of an application $\App \any f t$ at ambient quantity $\one$ and already know that $\inferJ \Gamma f \one {\PiT x \any A B}$. We now not only need to check that argument $t$ has type $A$ but also that we are allowed to make $\any$ copies of $t$. One way to achieve this would be to restrict the context to those variables that support $\any$ copies, i.e. $\checkJ {\restrictAny \Gamma} t {\one} A$. Idris, however, uses a variable rule that requires any accessed variable to have quantity larger or equal to the ambient quantity
+The ambient quantity has dual purpose. Similar to QTT's erased/present flag~\cite{Atkey2018}, it controls whether the expression to be checked is considered to be erased ($\zero$) or present ($\one$ or $\any$). It also acts as cost multiplier for variable accesses: suppose we want to infer the type of an application $\App \any f t$ at ambient quantity $\one$ and already know that $\inferJ \Gamma f \one {\PiT x \any A B}$. We now not only need to check that argument $t$ has type $A$ but also that we are allowed to make $\any$ copies of $t$. One way to achieve this would be to restrict the context to those variables that support $\any$ copies, i.e. $\checkJ \Sigma {\restrictAny \Gamma} t {\one} A$. Idris, however, uses a variable rule that requires any accessed variable to have quantity larger or equal to the ambient quantity
 \begin{mathpar}
 \inferrule*[Right=Var]{
   (\name x \OFq q A) \in \Gamma\\
@@ -186,7 +192,7 @@ The ambient quantity has dual purpose. Similar to QTT's erased/present flag~\cit
   \inferJ \Gamma {\name x} p A
 }
 \end{mathpar}
-allowing us to use $\checkJ \Gamma t \any A$ instead. In fact, we should always have $$\checkJ \Gamma t {p} A \iff \checkJ {\restrictQ \Gamma p} t {\presence p} A$$ where $\presence p$ squashes quantity $p$ down to just its presence
+allowing us to use $\checkJ \Sigma \Gamma t \any A$ instead. In fact, we should always have $$\checkJ \Sigma \Gamma t {p} A \iff \checkJ \Sigma {\restrictQ \Gamma p} t {\presence p} A$$ where $\presence p$ squashes quantity $p$ down to just its presence
 \begin{mathpar}
 \begin{array}{l}
 \presence \zero = \zero\\
@@ -195,29 +201,18 @@ allowing us to use $\checkJ \Gamma t \any A$ instead. In fact, we should always 
 \end{array}
 \end{mathpar}
 
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% variable rule would be             %
-%                                    %
-% \begin{mathpar}                    %
-% \inferrule*[Right=Var-$\zero$]{    %
-%   (\name x \OFq q A) \in \Gamma    %
-% } {                                %
-%   \inferJ \Gamma {\name x} \zero A %
-% }                                  %
-% \\                                 %
-% \inferrule*[Right=Var-$\one$]{     %
-%   (\name x \OFq q A) \in \Gamma\\  %
-%   q \not= \zero                    %
-% } {                                %
-%   \inferJ \Gamma {\name x} \one A  %
-% }                                  %
-% \end{mathpar}                      %
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\section{Type checking}}
+\section{Type checking}
 
 \subsection{Variables}
+
+\begin{mathpar}
+\inferrule*[Right=Annot]{
+  \inferJ \Gamma A \zero \Type\\
+  \checkJ \Sigma \Gamma e p A
+} {
+  \inferJ \Gamma {\Annot e A} p A
+}
+\end{mathpar}
 
 \begin{mathpar}
 \inferrule*[Right=Var]{
@@ -228,47 +223,41 @@ allowing us to use $\checkJ \Gamma t \any A$ instead. In fact, we should always 
 }
 \end{mathpar}
 
+\begin{mathpar}
+\inferrule*[Right=Inf]{
+  \inferJ \Gamma e p B\\
+  \convJ \Gamma A B \zero \Type
+} {
+  \checkJ \Sigma \Gamma {\Inf e} p A
+}
+\end{mathpar}
+
+
+\begin{mathpar}
+\inferrule*[Right=Type]{ } {
+  \checkJ \Sigma \Gamma \Type p \Type
+}
+\end{mathpar}
+Note: Yaffle currently has type-in-type but cumulative universes are on the roadmap.
+
 \subsection{Function type}
 
 \begin{mathpar}
 \inferrule*[Right=Pi]{
-  \Gamma \ENTq {\ceil p q} A \leadsto {A'} \USES \_ \\\\
-  \Gamma, (\name x \OFq q {A'}) \ENTq {\ceil p} B \leadsto {B'} \USES u
+  \checkJ \Sigma \Gamma A \zero \Type \\
+  \checkJ \Sigma {\Gamma, (\name x \OFq q {A})} B \zero \Type
 } {
-  \Gamma \ENTq p \PiT x q A B \leadsto \PiT x q {A'} {B'} \USES u \smallsetminus \name x
+  \inferJ \Gamma {\PiT x q A B} p \Type
 }
 \end{mathpar}
-Note: when $p$ is runtime-present, $B$ can only mention argument $x$ if it has quantity $\any$.
-
-\begin{mathpar}
-\inferrule*[Right=Pi-hack]{
-  \Gamma \not\ENTq {\ceil p q} A \leadsto \_ \USES \_ \\
-  \Gamma \ENTq {\ceil p \one} A \leadsto {A'} \USES \_ \\
-  (p \not= \zero \land q = \zero)\\\\
-  \Gamma, (\name x \OFq \one {A'}) \ENTq {\ceil p} B \leadsto {B'} \USES u
-} {
-  \Gamma \ENTq p \PiT x q A B \leadsto \PiT x \one {A'} {B'} \USES u \smallsetminus \name x
-}
-\end{mathpar}
-
-\textsc{Pi-hack} has contradictory premises if $p = \zero$ or $q \not= \zero$:
-\begin{mathpar}
-\begin{array}{ cc|cc }
-p & q & \ceil p q & \ceil p \one \\
-\hline
-\one & \zero & \zero & \any \\
-\any & \zero & \zero & \any
-\end{array}
-\end{mathpar}
-Furthermore, $q = \zero$ forces $\ceil p q = \zero$, meaning whenever $\Gamma \ENTq {\ceil p \one} A \leadsto A' \USES u$, we can also derive $\Gamma \ENTq {\ceil p q} A \leadsto \_ \USES \_$. Hence, the rule never applies.
 
 \subsection{Function abstraction}
 
 \begin{mathpar}
 \inferrule*[Right=Lam]{
-  \checkJ {\restrictQ \Gamma p, (\name x \OFq q A)} t {\presence p} B
+  \checkJ \Sigma {\restrictQ \Gamma p, (\name x \OFq q A)} t {\presence p} B
 } {
-  \checkJ \Gamma {\lam x t} p {\PiT x q A B}
+  \checkJ \Sigma \Gamma {\lam x t} p {\PiT x q A B}
 }
 \end{mathpar}
 
@@ -276,65 +265,23 @@ Furthermore, $q = \zero$ forces $\ceil p q = \zero$, meaning whenever $\Gamma \E
 \begin{mathpar}
 \inferrule*[Right=App] {
   \inferJ \Gamma f p {\PiT x q A B} \\
-  \checkJ \Gamma t {pq} A
+  \checkJ \Sigma \Gamma t {pq} A
 } {
   \inferJ \Gamma {\App q f t} p {\Sub B t x}
 }
 \end{mathpar}
-
-further optimisation: only restrict the context when introduction a linear variable to the context at ambient quantity $\any$.
-not replicate in the rules
+Note: Idris only restricts the context when introducing a linear variable at ambient quantity $\any$. We do not replicate this optimisation in the rules.
 
 \subsection{Let binding}
 \begin{mathpar}
 \inferrule*[Right=Let]{
-  \Gamma \ENTq \zero A \leadsto {A'} \USES \_ \\
-  \Gamma \ENTq {p q} t \leadsto {t'} \USES u_t \\
-  \Gamma, (\name x \OFq q {A'}) \ENTq p s \leadsto {s'} \USES u_s \\
-  p q = \one \implies u_s(\name x) = 1
+  \checkJ \Sigma \Gamma A \zero \Type\\
+  \checkJ \Sigma \Gamma t {p q} A\\
+  \inferJ {\restrictQ \Gamma p, (\name x \OFq q A)} s {\presence p} B
 } {
-  \Gamma \ENTq p \Let x q A t s \leadsto \Let x q {A'} {t'} {s'} \USES u_t \cup (u_s \smallsetminus \name x)
+  \inferJ \Gamma {\Let x q A t s} p B
 }
 \end{mathpar}
-This rule is unnecessarily restrictive: we are not allowed to type a let-binding when $p = \any$ and $q = \one$ even if $\Gamma \ENTq \any t \leadsto {t'} \USES u_t$ is derivable (c.f. \TirName{Lam-$\any$}).
-
-\begin{mathpar}
-\inferrule*[Right=Let-hack]{
-  \Gamma \ENTq \zero A \leadsto {A'} \USES \_ \\
-  \Gamma \not\ENTq {p q} t \leadsto \_ \USES \_ \\
-  \Gamma \ENTq {p \one} t \leadsto {t'} \USES u_t \\
-% (p \not= 0 \land q \not= \one \land (p = \any \Leftrightarrow q = \zero))\\\\
-  (p \not= 0 \land q \not= \one \land p \not= q)\\\\
-  \Gamma, (\name x \OFq \one {A'}) \ENTq p s \leadsto {s'} \USES u_s
-} {
-  \Gamma \ENTq p \Let x q A t s \leadsto \Let x \one {A'} {t'} {s'} \USES u_t \cup (u_s \smallsetminus \name x)
-}
-\end{mathpar}
-Non-contradictory choices for $p$ and $q$:
-\begin{mathpar}
-\begin{array}{ cc|cc }
-p & q & p q & p \one \\
-\hline
-\one & \zero & \zero & \one \\
-\one & \any  & \any  & \one \\
-\any & \zero & \zero & \any
-\end{array}
-\end{mathpar}
-If $q = \zero$ and $\Gamma \ENTq {p \one} t \leadsto t' \USES u_t$, then necessarily\todo{Subject to proof!} $\Gamma \ENTq {p q} t \leadsto \_ \USES \_$ (since $p q = \zero$). So the rule can only apply when $p = \one$ and $q = \any$, i.e.
-
-\begin{mathpar}
-\inferrule*[Right=Let-hack-$\one\any$]{
-  \Gamma \ENTq \zero A \leadsto {A'} \USES \_ \\
-  \Gamma \not\ENTq \any t \leadsto \_ \USES \_ \\
-  \Gamma \ENTq \one t \leadsto {t'} \USES u_t \\
-  \Gamma, (\name x \OFq \one {A'}) \ENTq \one s \leadsto {s'} \USES u_s
-} {
-  \Gamma \ENTq \one \Let x \any A t s \leadsto \Let x \one {A'} {t'} {s'} \USES u_t \cup (u_s \smallsetminus \name x)
-}
-\end{mathpar}
-
-
-Note: we do not erase unused let-bound terms.
 
 \subsection{Meta-variables}
 \begin{mathpar}
@@ -357,39 +304,51 @@ Note: we do not erase unused let-bound terms.
 % TODO check types
 \begin{mathpar}
 \inferrule*[Right=TyCon] {
-  \definition{tc} \OFq q {\PiTele {x_i} {q_i} {T_i} \Type} \in \Sigma \\
-  p \leq q
+  \checkJ \Sigma \EMPTY {\PiTele {x_i} {q_i} {T_i} \Type} \zero \Type\\
+  \checkJ {\Sigma, [{\definition{tc} \OFq q {\PiTele {x_i} {q_i} {T_i} \Type}}, []]} \EMPTY
+    {\definition {dc}} {\one} T
 } {
-  \Gamma \ENTq p \TyCon {tc} n \leadsto \TyCon {tc} n \USES \emptyset
-}\\
+  \checkDefJ
+  {\Sigma,
+    [ {\definition{tc} \OFq q {\PiTele {x_i} {q_i} {T_i} \Type}},
+      {\definition{dc}_j \OF \overline{\PiTele {y_j} {r_j} {A_j} {\AppTele {\TyCon {tc}} {q_j} {t_j}}}}
+    ]
+  }
+}
+\end{mathpar}
+Note: positivity check still to be implemented.
 
+\begin{mathpar}
 \inferrule*[Right=DataCon] {
-  \definition{dc} \OFq q {\PiTele {y_i} {r_i} {A_i} {\AppTele {\TyCon {tc} n} {q_i} {t_i}}} \in \Sigma \\
+  \definition{dc} \OF {\PiTele {y_i} {r_i} {A_i} {\AppTele {\TyCon {tc}} {q_i} {t_i}}} \in \Sigma \\
   p \leq q
 } {
-  \Gamma \ENTq p \DataCon {dc} n \leadsto \DataCon {dc} n \USES \emptyset
+  \Gamma \ENTq p \DataCon {dc} \leadsto \DataCon {dc} \USES \emptyset
 }
 \end{mathpar}
 
-\subsection{Pattern matching}
+\subsection{Case}
 
 \subsection{Definition}
 \begin{mathpar}
 \inferrule*[Right=ref] {
-  \definition f \OFq q T \in \Sigma\\
-  p \leq q
+  \definition f \OFq q T \in \Sigma_{\text{def}}\\
+  {\presence p} \leq q
 } {
-  \Gamma \ENTq p \definition f \leadsto \definition f \USES \emptyset
+  \inferJ \Gamma {\definition f} p T
 }
 \end{mathpar}
 
 
 \begin{mathpar}
 \inferrule*[Right=def] {
-  \EMPTY \ENTq \zero T \leadsto {T'} \USES \_\\
-  \EMPTY \ENTq q t \leadsto {t'} \USES u
+  \checkDefJ \Sigma\\
+  \checkJ \Sigma \EMPTY T \zero \Type \\
+  \checkJ \Sigma \EMPTY t q T\\
+  \linCheckJ \EMPTY q t\\
+  (q \in \{\zero, \one\})
 } {
-  {} \ENT {\Def f q T t} \leadsto {\Def f q {T'} {t'}}
+  \checkDefJ {\Sigma, \Def f q T t}
 }
 \end{mathpar}
 
