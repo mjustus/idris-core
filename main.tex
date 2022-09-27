@@ -30,7 +30,7 @@
 
 \title{Yaffle}
 
-\newcommand{\used}[2]{\textsf{used}(#1,#2)}
+\newcommand{\used}[2]{\textsf{lin}(#1,#2)}
 \newcommand{\usageCount}[2]{\textsf{count}(#1,#2)}
 
 \newcommand{\ceil}[1]{\left\lceil #1\right\rceil}
@@ -53,16 +53,14 @@
 
 \newcommand{\EMPTY}{.}
 
-\newcommand{\checkJ}[5]{#1; #2 \ENT {#3} \in^{#4} #5}
-\newcommand{\inferJ}[5]{#1; #2 \ENT #3 \TOq {#4} #5}
+\newcommand{\checkJ}[5]{#1; #2 \ENT {#3} \OFq {#4} #5}
 
 \newcommand{\convJ}[5]{\Sigma; #1 \ENT {#2} = {#3} \OFq {#4} #5}
 
 \newcommand{\linCheckJ}[4]{\Sigma; #1 \ENT {#2} \USES^{#3} {#4}}
 
 \newcommand{\eqJ}[6]{#1; #2 \ENT {#3} = {#4} \OFq {#5} #6}
-\newcommand{\checkEqJ}[6]{#1; #2 \ENT {#3} = {#4} \in^{#5} #6}
-\newcommand{\inferEqJ}[6]{#1; #2 \ENT {#3} = {#4} \TOq {#5} #6}
+\newcommand{\checkEqJ}[6]{#1; #2 \ENT {#3} = {#4} \OFq {#5} #6}
 
 \newcommand{\type}[1]{{\textcolor{type}{\textsf{#1}}}}
 \newcommand{\term}[1]{{\textcolor{term}{\textsf{#1}}}}
@@ -90,14 +88,16 @@
 \newcommand{\MetaApp}[3]{\term{MetaApp}\left(\metaVariable {#1} \overline{,^{#2} {#3}}\right)}
 \newcommand{\TyCon}[1]{\type{TyCon}\left({\definition {#1}}\right)}
 \newcommand{\DataCon}[1]{\term{DataCon}\left({\definition {#1}}\right)}
-\newcommand{\lam}[1]{\textcolor{term}{\lambda} {\name #1}.\,}
+\newcommand{\lam}[3]{\textcolor{term}{\lambda} {(\name {#1} \OFq {#2} {#3})}.\,}
 \newcommand{\Let}[5]{\term{let}\, {\name #1} \OFq {#2} {#3} := {#4} \mathbin{\term{in}} {#5}}
-\newcommand{\Inf}[1]{\overline{#1}}
-\newcommand{\Annot}[2]{\left(#1 \OF #2\right)}
+
+% \newcommand{\Inf}[1]{\overline{#1}}
+% \newcommand{\Annot}[2]{\left(#1 \OF #2\right)}
 
 \newcommand{\fv}[1]{\text{fv}(#1)}
 
-\newcommand{\Def}[4]{\definition{#1} \OFq {#2} {#3} := {#4}}
+\newcommand{\Def}[2]{\definition{#1} := {#2}}
+\newcommand{\Sig}[3]{\definition{#1} \OFq {#2} {#3}}
 \newcommand{\checkDefJ}[1]{{} \ENT {#1}}
 
 \newcommand{\Case}[6]{\term{case}~ {#1} \OFq {#2} {#3} \mathrel{\term{to}} {#4} \mathrel{\term{via}} {#5} \mathrel{\term{of}} \left\{\overline{#6}\right\}}
@@ -152,7 +152,7 @@ Idris splits the world into expressions that are present at runtime and those th
 \end{itemize}
 Informally, runtime-present expressions can only depend on variables at quantity $\one$ or $\any$, where $\one$-annotated variables must be used exactly once and $\any$-annotated variables can be used arbitrarily. In contrast, erased expressions have unrestricted access to all variables, including $\zero$-annotated variables.
 
-The context records the number of copies available of each variable; it does not account for exact variable usage inside the term to be checked\footnote{Unlike Atkey's QTT\cite{Atkey2018}.}. Type checking only enforces that variables usage adheres to this budget locally but, in particular, does not enforce that linear variables are used precisely once. This is left to the \hyperref[sec:linearity_checking]{linearity checker}, which runs after type checking.
+The context records the number of copies available of each variable; it does not account for exact variable usage inside the term to be checked\footnote{This is departure from Atkey's presentation of QTT\cite{Atkey2018}.}. Type checking only enforces that variable usage adheres to this budget locally but, in particular, does not enforce that linear variables are used precisely once. This is left to the \hyperref[sec:linearity_checking]{linearity checker}, which runs after type checking.
 
 We will frequently need to multiply quantities, turning the set of  quantities into a monoid
 \begin{mathpar}
@@ -196,15 +196,15 @@ Note that $\Gamma = \restrictQ \Gamma \zero = \restrictQ \Gamma \one$.
 
 \section{Quantity-annotated judgements}
 
-The type-checker follows a bidirectional discipline. Judgement $\checkJ \Sigma \Gamma t p A$ amounts to checking that term $t$ has type $A$ in context $\Gamma$ at {\em ambient} quantity $p$. The corresponding inference judgement will be written as $\inferJ \Sigma \Gamma t p A$.
+The type-checker follows a bidirectional discipline, elaborating a domain-free\footnote{Meaning binders are not type-annotated, c.f.~\cite{Barthe2000}} bidirectional language\footnote{Checkable terms \texttt{RawC} and inferrable terms \texttt{RawI} are defined in \href{https://github.com/edwinb/Yaffle/blob/main/src/Core/Syntax/Raw.idr}{Core.Syntax.Raw}.} to a conventional domain-full language\footnote{Defined as \texttt{Term} in \href{https://github.com/edwinb/Yaffle/blob/main/src/Core/TT/TT.idr}{Core.TT.TT}.}. We give a type system for the latter.
 
-The ambient quantity has dual purpose. Similar to QTT's erased/present flag~\cite{Atkey2018}, it controls whether the expression to be checked is considered to be erased ($\zero$) or present ($\one$ or $\any$). It also acts as cost multiplier for variable accesses: suppose we want to infer the type of an application $\App \any f t$ at ambient quantity $\one$ and already know that $\inferJ \Sigma \Gamma f \one {\PiT x \any A B}$. We now not only need to check that argument $t$ has type $A$ but also that we are allowed to make $\any$ copies of $t$. One way to achieve this would be to restrict the context to those variables that support $\any$ copies, i.e. $\checkJ \Sigma {\restrictAny \Gamma} t {\one} A$. Idris, however, uses a variable rule that requires any accessed variable to have quantity larger or equal to the ambient quantity
+Judgement $\checkJ \Sigma \Gamma t p A$ amounts to checking that term $t$ has type $A$ in context $\Gamma$ at {\em ambient} quantity $p$ with definitions $\Sigma$. The ambient quantity has dual purpose. Much like QTT's erased/present flag~\cite{Atkey2018}, it controls whether the expression to be checked is considered to be erased ($\zero$) or present ($\one$ or $\any$). It also acts as cost multiplier for variable accesses: suppose we want to infer the type of an application $\App \any f t$ at ambient quantity $\one$ and already know that $\checkJ \Sigma \Gamma f \one {\PiT x \any A B}$. We now not only need to check that argument $t$ has type $A$ but also that we are allowed to make $\any$ copies of $t$. One way to achieve this would be to restrict the context to those variables that support $\any$ copies, i.e. $\checkJ \Sigma {\restrictAny \Gamma} t {\one} A$. Idris, however, uses a variable rule that requires any accessed variable to have quantity larger or equal to the ambient quantity
 \begin{mathpar}
 \inferrule*[Right=Var]{
   (\name x \OFq q A) \in \Gamma\\
   p \leq q
 } {
-  \inferJ \Sigma \Gamma {\name x} p A
+  \checkJ \Sigma \Gamma {\name x} p A
 }
 \end{mathpar}
 allowing us to use $\checkJ \Sigma \Gamma t \any A$ instead. In fact, we should always have $$\checkJ \Sigma \Gamma t {p} A \iff \checkJ \Sigma {\restrictQ \Gamma p} t {\presence p} A$$ where $\presence p$ squashes quantity $p$ down to just its presence
@@ -216,48 +216,54 @@ allowing us to use $\checkJ \Sigma \Gamma t \any A$ instead. In fact, we should 
 \end{array}
 \end{mathpar}
 
+\section{Syntax}
+
+$$
+\begin{array}{lrll}
+  \text{expressions } {t, s, e, f, A, B} &\mathrel{\text{::=}} &\name x & \text{variables ${\name x} \in \mathbb V$}\\
+  &\mid &\definition f & \text{defined functions}\\
+  &\mid &\TyCon {\definition tc} & \text{type constructors}\\
+  &\mid &\DataCon {\definition dc} & \text{data constructors}\\
+  &\mid &\lam x q A t\\
+  &\mid &\Let x q A t s\\
+  &\mid &\PiT x q A B & \text{function types}\\
+  &\mid &\App q f t & \text{function application}\\
+  &\mid &c\\
+  &\mid &\Type\\
+  \\
+  \text{constants } {c} &\mathrel{\text{::=}} &n & \text{$n \in \mathbb N$}\\
+  &\mid &\ldots\\
+  &\mid &\type{Int}\\
+  &\mid &\ldots\\
+  \\
+  \text{declarations } {d} &\mathrel{\text{::=}} &\definition f \OFq q A & \text{function signature}\\
+      &\mid &\definition f = t & \text{function definition}
+
+\end{array}
+$$
+
 \section{Type checking}
 
-domain-free (meaning binders are not type-annotated, c.f.~\cite{Barthe2000}) bidirectional
-
-to a standard domain-full type language. We give a type system for the latter.
-
-\subsection{Variables}
-
+\subsection{Type conversion}
 \begin{mathpar}
-\inferrule*[Right=Annot]{
-  \inferJ \Sigma \Gamma A \zero \Type\\
-  \checkJ \Sigma \Gamma e p A
+\inferrule*[Right=Conv]{
+  \checkJ \Sigma \Gamma e p B\\
+  \convJ \Gamma A B \zero \Type
 } {
-  \inferJ \Sigma \Gamma {\Annot e A} p A
+  \checkJ \Sigma \Gamma e p A
 }
 \end{mathpar}
+
+\subsection{Variables}
 
 \begin{mathpar}
 \inferrule*[Right=Var]{
   (\name x \OFq q A) \in \Gamma\\
   p \leq q
 } {
-  \inferJ \Sigma \Gamma {\name x} p A
+  \checkJ \Sigma \Gamma {\name x} p A
 }
 \end{mathpar}
-
-\begin{mathpar}
-\inferrule*[Right=Inf]{
-  \inferJ \Sigma \Gamma e p B\\
-  \convJ \Gamma A B \zero \Type
-} {
-  \checkJ \Sigma \Gamma {\Inf e} p A
-}
-\end{mathpar}
-
-
-\begin{mathpar}
-\inferrule*[Right=Type]{ } {
-  \checkJ \Sigma \Gamma \Type p \Type
-}
-\end{mathpar}
-Note: Yaffle currently has type-in-type but cumulative universes are on the roadmap.
 
 \subsection{Function type}
 
@@ -266,7 +272,7 @@ Note: Yaffle currently has type-in-type but cumulative universes are on the road
   \checkJ \Sigma \Gamma A \zero \Type \\
   \checkJ \Sigma {\Gamma, (\name x \OFq q {A})} B \zero \Type
 } {
-  \inferJ \Sigma \Gamma {\PiT x q A B} p \Type
+  \checkJ \Sigma \Gamma {\PiT x q A B} p \Type
 }
 \end{mathpar}
 
@@ -276,17 +282,17 @@ Note: Yaffle currently has type-in-type but cumulative universes are on the road
 \inferrule*[Right=Lam]{
   \checkJ \Sigma {\restrictQ \Gamma p, (\name x \OFq q A)} t {\presence p} B
 } {
-  \checkJ \Sigma \Gamma {\lam x t} p {\PiT x q A B}
+  \checkJ \Sigma \Gamma {\lam x q A t} p {\PiT x q A B}
 }
 \end{mathpar}
 
 \subsection{Function application}
 \begin{mathpar}
 \inferrule*[Right=App] {
-  \inferJ \Sigma \Gamma f p {\PiT x q A B} \\
+  \checkJ \Sigma \Gamma f p {\PiT x q A B} \\
   \checkJ \Sigma \Gamma t {pq} A
 } {
-  \inferJ \Sigma \Gamma {\App q f t} p {\Sub B t x}
+  \checkJ \Sigma \Gamma {\App q f t} p {\Sub B t x}
 }
 \end{mathpar}
 Note: Idris only restricts the context when introducing a linear variable at ambient quantity $\any$. We do not replicate this optimisation in the rules.
@@ -296,9 +302,9 @@ Note: Idris only restricts the context when introducing a linear variable at amb
 \inferrule*[Right=Let]{
   \checkJ \Sigma \Gamma A \zero \Type\\
   \checkJ \Sigma \Gamma t {p q} A\\
-  \inferJ {\restrictQ \Gamma p, (\name x \OFq q A)} s {\presence p} B
+  \checkJ {\restrictQ \Gamma p, (\name x \OFq q A)} s {\presence p} B
 } {
-  \inferJ \Sigma \Gamma {\Let x q A t s} p B
+  \checkJ \Sigma \Gamma {\Let x q A t s} p B
 }
 \end{mathpar}
 
@@ -327,29 +333,66 @@ Note: Idris only restricts the context when introducing a linear variable at amb
 }
 \end{mathpar}
 
-
-\subsection{Meta-variables}
+\subsection{Constants}
 \begin{mathpar}
-\inferrule*[Right=MetaApp-def] {
-  (X = d) \in \Sigma \\
-  \Gamma \ENTq {pq_i} t_i \leadsto {t'_i} \USES u_i
-} {
-  \Gamma \ENTq p {\MetaApp X {q_i} {t_i}} \leadsto \MetaApp X {q_i} {\deleteQ {t'_i} {q_i}} \USES \bigcup u_i
-}
-
-\inferrule*[Right=MetaApp-undef] {
-  X \in \Sigma
-} {
-  \Gamma \ENTq p {\MetaApp X {q_i} {t_i}} \leadsto \MetaApp X {q_i} {\deleteQ {t_i} {q_i}} \USES \emptyset
+\inferrule*[Right=Int]{ } {
+  \checkJ \Sigma \Gamma {\type{Int}} p \Type
 }
 \end{mathpar}
 
+\begin{mathpar}
+\inferrule*[Right=Int-Const]{
+  (n \in \mathbb N)
+} {
+  \checkJ \Sigma \Gamma {n} p {\type{Int}}
+}
+\end{mathpar}
+
+\subsection{Universe}
+\begin{mathpar}
+\inferrule*[Right=Type]{ } {
+  \checkJ \Sigma \Gamma \Type p \Type
+}
+\end{mathpar}
+Note: Yaffle currently has type-in-type but cumulative universes are on the roadmap.
+
+\subsection{Defined functions}
+\begin{mathpar}
+\inferrule*[Right=ref] {
+  \left( \Sig f q A \right) \in \Sigma\\
+  {\presence p} \leq q
+} {
+  \checkJ \Sigma \Gamma {\definition f} p A
+}
+\end{mathpar}
+
+
+% \subsection{Meta-variables}
+% \begin{mathpar}
+% \inferrule*[Right=MetaApp-def] {
+%   (X = d) \in \Sigma \\
+%   \Gamma \ENTq {pq_i} t_i \leadsto {t'_i} \USES u_i
+% } {
+%   \Gamma \ENTq p {\MetaApp X {q_i} {t_i}} \leadsto \MetaApp X {q_i} {\deleteQ {t'_i} {q_i}} \USES \bigcup u_i
+% }
+
+% \inferrule*[Right=MetaApp-undef] {
+%   X \in \Sigma
+% } {
+%   \Gamma \ENTq p {\MetaApp X {q_i} {t_i}} \leadsto \MetaApp X {q_i} {\deleteQ {t_i} {q_i}} \USES \emptyset
+% }
+% \end{mathpar}
+
 \section{Definitions}
+
+A Yaffle file consists of a sequence of declarations
+$$\Sigma \mathrel{\text{::=}} \EMPTY \mid {\Sigma, d}$$
+which we call well-typed if judgment $\checkDefJ \Sigma$ holds.
 
 \subsection{Data types}
 
 \begin{mathpar}
-\inferrule*[Right=Def-Empty] { } {
+\inferrule*[Right=Empty] { } {
   \checkDefJ \EMPTY
 }
 \end{mathpar}
@@ -369,7 +412,7 @@ Note: Idris only restricts the context when introducing a linear variable at amb
 \begin{mathpar}
 \inferrule*[Right=Def-DataCon] {
   \left( \definition{tc} \OF {\PiTele {x_i} {q_i} {T_i} \Type} \right) \in \Sigma\\\\
-  \inferJ \EMPTY {\PiTele {y_j} {r_j} {A_j} {\AppTele {\TyCon {tc}} {q_i} {t_i}}} \zero \Type
+  \checkJ \EMPTY {\PiTele {y_j} {r_j} {A_j} {\AppTele {\TyCon {tc}} {q_i} {t_i}}} \zero \Type
 } {
   \checkDefJ {\Sigma, {\definition{dc} \OF {\PiTele {y_j} {r_j} {A_j} {\AppTele {\TyCon {tc}} {q_i} {t_i}}}}}
 }
@@ -380,7 +423,7 @@ Note: to keep the presentation simple, we leave data types open to extension. St
 \inferrule*[Right=TyCon] {
   \left( \definition{tc} \OF {\PiTele {x_i} {q_i} {T_i} \Type} \right) \in \Sigma
 } {
-  \inferJ \Sigma \Gamma {\TyCon {tc}} p {\PiTele {x_i} {q_i} {T_i} \Type}
+  \checkJ \Sigma \Gamma {\TyCon {tc}} p {\PiTele {x_i} {q_i} {T_i} \Type}
 }
 \end{mathpar}
 
@@ -388,31 +431,34 @@ Note: to keep the presentation simple, we leave data types open to extension. St
 \inferrule*[Right=DataCon] {
   \left( \definition{dc} \OF {\PiTele {y_j} {r_j} {A_j} {\AppTele {\TyCon {tc}} {q_i} {t_i}}} \right) \in \Sigma
 } {
-  \inferJ \Sigma \Gamma {\DataCon {dc}} p {\PiTele {y_j} {r_j} {A_j} {\AppTele {\TyCon {tc}} {q_i} {t_i}}}
+  \checkJ \Sigma \Gamma {\DataCon {dc}} p {\PiTele {y_j} {r_j} {A_j} {\AppTele {\TyCon {tc}} {q_i} {t_i}}}
 }
 \end{mathpar}
 
 \subsection{Functions}
+
+Functions signature and definitions are defined separately to allow mutually recursive definitions. We do not check termination and also do not prevent re-definition.
 \begin{mathpar}
-\inferrule*[Right=ref] {
-  \left( \Def f q T t \right) \in \Sigma\\
-  {\presence p} \leq q
+\inferrule*[Right=Sig] {
+  \checkDefJ \Sigma\\
+  \checkJ \Sigma \EMPTY A \zero \Type\\
+  (q \in \{\zero, \one\})
 } {
-  \inferJ \Sigma \Gamma {\definition f} p T
+  \checkDefJ {\Sigma, \Sig f q A}
 }
 \end{mathpar}
 
 \begin{mathpar}
-\inferrule*[Right=def] {
+\inferrule*[Right=Def] {
   \checkDefJ \Sigma\\
-  \checkJ \Sigma \EMPTY T \zero \Type \\
-  \checkJ \Sigma \EMPTY t q T\\
+  \left( \Sig f q A \right) \in \Sigma\\
+  \checkJ \Sigma \EMPTY t q A\\
   \linCheckJ \EMPTY t q \emptyset\\
-  (q \in \{\zero, \one\})
 } {
-  \checkDefJ {\Sigma, \Def f q T t}
+  \checkDefJ {\Sigma, \Def f t}
 }
 \end{mathpar}
+The last premise, $\linCheckJ \EMPTY t q \emptyset$, invokes the linearity checker.
 
 \section{Conversion}
 
@@ -425,7 +471,7 @@ We present the intended equational theory
   \checkJ \Sigma {\restrictQ \Gamma p, (\name x \OFq q A)} e {\presence p} B\\
   \checkJ \Sigma \Gamma t {pq} A\\
 } {
-  \inferEqJ \Sigma \Gamma {\App q {\Annot {\lam x e} {\PiT x q A B}} t} {\Annot {\Sub e t x} {\Sub B t x}} p {\Sub B t x}
+  \checkEqJ \Sigma \Gamma {\App q {\lam x q A e} t} {\Sub e t x} p {\Sub B t x}
 }
 \end{mathpar}
 
@@ -434,23 +480,7 @@ We present the intended equational theory
   \checkJ \Sigma \Gamma f p {\PiT x q A B}\\
   \name x \not\in {\fv f}
 } {
-  \inferEqJ \Sigma \Gamma f {\lam x {\App q f {\name x}}} p {\PiT x q A B}
-}
-\end{mathpar}
-
-\begin{mathpar}
-\inferrule*[Right=Annot-$\beta$] {
-  \checkJ \Sigma \Gamma e p A
-} {
-  \checkEqJ \Sigma \Gamma {\Inf {\Annot e A}} {e} p A
-}
-\end{mathpar}
-
-\begin{mathpar}
-\inferrule*[Right=Annot-$\eta$] {
-  \inferJ \Sigma \Gamma e p A
-} {
-  \inferEqJ \Sigma \Gamma {e} {\Annot {\Inf e} A} p A
+  \checkEqJ \Sigma \Gamma f {\lam x q A {\App q f {\name x}}} p {\PiT x q A B}
 }
 \end{mathpar}
 
@@ -458,9 +488,9 @@ We present the intended equational theory
 \inferrule*[Right=Let-$\delta$] {
   \checkJ \Sigma \Gamma A \zero \Type\\
   \checkJ \Sigma \Gamma t {pq} A\\
-  \inferJ \Sigma {\restrictQ \Gamma p, (\name x \OFq q A)} s {\presence p} B
+  \checkJ \Sigma {\restrictQ \Gamma p, (\name x \OFq q A)} s {\presence p} B
 } {
-  \inferEqJ \Sigma \Gamma {\Let x q A t s} {\Sub s t x} p B
+  \checkEqJ \Sigma \Gamma {\Let x q A t s} {\Sub s t x} p B
 }
 \end{mathpar}
 
@@ -469,57 +499,48 @@ We present the intended equational theory
   \left( \Def f q A t \right) \in \Sigma\\
   \presence p \leq q
 } {
-  \inferEqJ \Sigma \Gamma {\definition f} {\Annot t A} p A
+  \checkEqJ \Sigma \Gamma {\definition f} t p A
 }
 \end{mathpar}
 
 \section{Linearity checking}\label{sec:linearity_checking}
 
-untyped context
+We record usage of linear variables as a multiset $u \in \mathbb V \to \mathbb N$ with the following operations:
 
 \begin{itemize}
-\item $\Phi \mathrel{\text{::=}} \EMPTY \mid \Phi, (\name x \propto q)$
-\item variable usage $u \in \mathbb V \to \mathbb N$ is a multiset of variables
+\item empty usage
+  $$
+  \emptyset = \name y \mapsto 0
+  $$
+\item singleton usage
+  $$
+  \{ \name x \} = \name y \mapsto {\begin{cases}1 & \text{if $\name y = \name x$}\\ 0 & \text{otherwise} \end{cases}}
+  $$
+\item linear variable usage
+  $$
+  \used p {\name x} = {\begin{cases}\{\name x\} & \text{if $p = \one$}\\ \emptyset  & \text{otherwise} \end{cases}}
+  $$
+\item variable deletion
+  $$
+  u \setminus {\name x} = \name y \mapsto {\begin{cases}0 & \text{if $\name y = \name x$}\\ u(\name y) & \text{otherwise} \end{cases}}
+  $$
 \end{itemize}
-
-$$
-\emptyset = \name y \mapsto 0
-$$
-
-$$
-\{ \name x \} = \name y \mapsto {\begin{cases}1 & \text{if $\name y = \name x$}\\ 0 & \text{otherwise} \end{cases}}
-$$
-
-
-$$
-u \setminus {\name x} = \name y \mapsto {\begin{cases}0 & \text{if $\name y = \name x$}\\ u(\name y) & \text{otherwise} \end{cases}}
-$$
-
-
-% Let
-%
-% \begin{mathpar}
-% \used p x = \begin{cases}
-% \{x\} & \text{if $p = 1$}\\
-% \emptyset  & \text{otherwise}
-% \end{cases}
-% \end{mathpar}
 
 \begin{mathpar}
 \inferrule*[Right=Var]{
-  (\name x \propto q) \in \Phi\\
+  (\name x \OFq q A) \in \Gamma\\
   p \leq q
 } {
-  \linCheckJ \Phi {\name x} p {\begin{cases}\{x\} & \text{if $p = 1$}\\ \emptyset  & \text{otherwise} \end{cases}}
+  \linCheckJ \Gamma {\name x} p {\used p x}
 }
 \end{mathpar}
 
 \begin{mathpar}
 \inferrule*[Right=Lam]{
-  \linCheckJ {\restrictQ \Phi p, (\name x \propto q)} t {\presence p} u \\
+  \linCheckJ {\restrictQ \Gamma p, (\name x \OFq q A)} t {\presence p} u \\
   pq = \one \implies u(\name x) = 1
 } {
-  \linCheckJ \Phi {\lam x t} p {u \smallsetminus \name x}
+  \linCheckJ \Gamma {\lam x q A t} p {u \smallsetminus \name x}
 }
 \end{mathpar}
 
