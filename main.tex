@@ -498,7 +498,7 @@ The last premise, $\linCheckJ \EMPTY t q \emptyset$, invokes the linearity check
 \inferrule*[Right=Def-DataCon] {
   \left( \definition{tc} \OF {\Delta \to \Type} \right) \in \Sigma\\\\
   \checkJ \Sigma \EMPTY {\Phi \to {\AppTele {\TyCon {tc}} \delta}} \zero \Type\\\\
-  $\textsf{length}(\delta) = \textsf{length}(\Delta)$
+  \textsf{length}(\delta) = \textsf{length}(\Delta)
 } {
   \checkDefJ {\Sigma, {\definition{dc} \OF \Phi \to {\AppTele {\TyCon {tc}} \delta}}}
 }
