@@ -572,12 +572,6 @@ where the $\textsf{Match}$ predicate encodes first-match semantics
   \matchJ {\term n} {\{\Clause {\term m} {t}; {\overline{\Clause {l_i} {t_i}}}\}} {t'}
 }\\
 
-\inferrule*[Right=Match-Int-Mismatch]{
-  \matchJ {\term n} {\overline{\Clause {l_i} {t_i}}} {t'}\\
-} {
-  \matchJ {\term n} {\{\Clause {\definition {dc}~ \Phi} {t}; {\overline{\Clause {l_i} {t_i}}}\}} {t'}
-}\\
-
 \inferrule*[Right=Match-DataCon]{ } {
   \matchJ {\AppTele {\definition{dc}} \delta} {\{\Clause {\definition{dc}~ \Phi} {t}; {\overline{\Clause {l_i} {t_i}}}\}} {\SubE {t} \delta}
 }\\
@@ -587,12 +581,6 @@ where the $\textsf{Match}$ predicate encodes first-match semantics
   \definition{dc} \not= \definition{dc'}
 } {
   \matchJ {\AppTele {\definition{dc}} \delta} {\{\Clause {\definition{dc'}~ \Phi} {t}; {\overline{\Clause {l_i} {t_i}}}\}} {t'}
-}\\
-
-\inferrule*[Right=Match-DataCon-Mismatch] {
-  \matchJ {\AppTele {\definition{dc}} \delta} {\overline{\Clause {l_i} {t_i}}} {t'}
-} {
-  \matchJ {\AppTele {\definition{dc}} \delta} {\{\Clause {\term m} {t}; {\overline{\Clause {l_i} {t_i}}}\}} {t'}
 }
 \end{mathpar}
 
