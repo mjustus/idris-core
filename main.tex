@@ -5,7 +5,7 @@
 
 \usepackage{mathtools}
 
-\usepackage[utf8]{inputenc}
+\usepackage{inputenc}
 \usepackage{fontenc}
 
 \usepackage{stmaryrd}
@@ -30,7 +30,7 @@
 
 \title{Yaffle}
 
-\newcommand{\used}[2]{\textsf{lin}(#1,#2)}
+\newcommand{\used}[2]{\textsf{used}(#1,#2)}
 \newcommand{\usageCount}[2]{\textsf{count}(#1,#2)}
 
 \newcommand{\ceil}[1]{\left\lceil #1\right\rceil}
@@ -54,6 +54,8 @@
 \newcommand{\EMPTY}{.}
 
 \newcommand{\checkJ}[5]{#1; #2 \ENT {#3} \OFq {#4} #5}
+
+\newcommand{\checkPatJ}[5]{#1; #2; #3 \ENT {#4} \OF #5}
 
 \newcommand{\convJ}[5]{\Sigma; #1 \ENT {#2} = {#3} \OFq {#4} #5}
 
@@ -84,7 +86,7 @@
 % \newcommand{\App}[3]{#2^{#1}\, #3}
 \newcommand{\App}[3]{\term{App}^{#1}\left(#2,#3\right)}
 \newcommand{\Sub}[3]{#1 [#2/{\name #3}]}
-\newcommand{\AppTele}[3]{\term{App}\left(#1\overline{,^{#2} {#3}}\right)}
+\newcommand{\AppTele}[2]{\overline{\term{App}}\left(#1, #2\right)}
 \newcommand{\MetaApp}[3]{\term{MetaApp}\left(\metaVariable {#1} \overline{,^{#2} {#3}}\right)}
 \newcommand{\TyCon}[1]{\type{TyCon}\left({\definition {#1}}\right)}
 \newcommand{\DataCon}[1]{\term{DataCon}\left({\definition {#1}}\right)}
@@ -100,7 +102,7 @@
 \newcommand{\Sig}[3]{\definition{#1} \OFq {#2} {#3}}
 \newcommand{\checkDefJ}[1]{{} \ENT {#1}}
 
-\newcommand{\Case}[6]{\term{case}~ {#1} \OFq {#2} {#3} \mathrel{\term{to}} {#4} \mathrel{\term{via}} {#5} \mathrel{\term{of}} \left\{\overline{#6}\right\}}
+\newcommand{\Case}[4]{\term{case}~ {#1} \OFq {#2} {#3} \mathrel{\term{of}} \left\{\overline{#4}\right\}}
 
 \newcommand{\Clause}[2]{{#1} \shortrightarrow {#2}}
 
@@ -155,18 +157,16 @@ Informally, runtime-present expressions can only depend on variables at quantity
 The context records the number of copies available of each variable; it does not account for exact variable usage inside the term to be checked\footnote{This is departure from Atkey's presentation of QTT\cite{Atkey2018}.}. Type checking only enforces that variable usage adheres to this budget locally but, in particular, does not enforce that linear variables are used precisely once. This is left to the \hyperref[sec:linearity_checking]{linearity checker}, which runs after type checking.
 
 We will frequently need to multiply quantities, turning the set of  quantities into a monoid
-\begin{mathpar}
-\begin{array}{l}
-\multQ \one y = y\\
-\multQ x \one = x\\\\
-\multQ \zero y = \zero\\
-\multQ x \zero = \zero\\\\
-\multQ \any \any = \any
-\end{array}
-\end{mathpar}
+\begin{align*}
+\multQ \one y &= y\\
+\multQ x \one &= x\\\\
+\multQ \zero y &= \zero\\
+\multQ x \zero &= \zero\\\\
+\multQ \any \any &= \any
+\end{align*}
 
 When manipulating the context, we will also need a restriction operation $\restrictQ p q$, which makes $p$-annotated variables that do not support at least $q$ copies unavailable at runtime
-\begin{mathpar}
+$$
 \restrictQ p q =
   \left\{
     \begin{array}{ll}
@@ -174,24 +174,20 @@ When manipulating the context, we will also need a restriction operation $\restr
       \zero & \text{otherwise}
     \end{array}
   \right.
-\end{mathpar}
+$$
 Concretely,
-\begin{mathpar}
-\begin{array}{l}
-\restrictQ p \zero = p\\
-\restrictQ p \one = p\\
-\restrictAny \zero = \zero\\
-\restrictAny \one = \zero\\
-\restrictAny \any = \any
-\end{array}
-\end{mathpar}
+\begin{align*}
+\restrictQ p \zero &= p\\
+\restrictQ p \one &= p\\
+\restrictAny \zero &= \zero\\
+\restrictAny \one &= \zero\\
+\restrictAny \any &= \any
+\end{align*}
 and lifted to contexts
-\begin{mathpar}
-\begin{array}{ll}
-\restrictQ {\EMPTY} p = \EMPTY\\
-\restrictQ {\Gamma, (x \OFq q T)} p = \restrictQ \Gamma p, (x \OFq {\restrictQ q p} T)
-\end{array}
-\end{mathpar}
+\begin{align*}
+\restrictQ {\EMPTY} p &= \EMPTY\\
+\restrictQ {\Gamma, (x \OFq q T)} p &= \restrictQ \Gamma p, (x \OFq {\restrictQ q p} T)
+\end{align*}
 Note that $\Gamma = \restrictQ \Gamma \zero = \restrictQ \Gamma \one$.
 
 \section{Quantity-annotated judgements}
@@ -228,19 +224,47 @@ $$
   &\mid &\Let x q A t s\\
   &\mid &\PiT x q A B & \text{function types}\\
   &\mid &\App q f t & \text{function application}\\
-  &\mid &c\\
+  &\mid &\Case t q A {\Clause l {t_i}} & \text{case split}\\
+  &\mid &c & \text{constants}\\
   &\mid &\Type\\
   \\
-  \text{constants } {c} &\mathrel{\text{::=}} &n & \text{$n \in \mathbb N$}\\
+  \text{constants } {c} &\mathrel{\text{::=}} &\term{n} & \text{$\term{n} \in \mathbb N$}\\
   &\mid &\ldots\\
   &\mid &\type{Int}\\
   &\mid &\ldots\\
   \\
+  \text{patterns } {l} &\mathrel{\text{::=}} &\definition{dc}~ \Phi \\
+  &\mid &\term{\_} & \text{catch-all pattern} \\
+  &\mid &\term{n}\\
+  &\mid &\ldots\\
+  \\
   \text{declarations } {d} &\mathrel{\text{::=}} &\definition f \OFq q A & \text{function signature}\\
-      &\mid &\definition f = t & \text{function definition}
-
+  &\mid &\definition f = t & \text{function definition}\\
+  &\mid &\definition{tc} \OF \Delta \to \Type & \text{type constructor}\\
+  &\mid &\definition{dc} \OF \Phi \to \AppTele {\TyCon {\definition {tc}}} \delta  & \text{data constructor}
 \end{array}
 $$
+
+\subsection{Derived syntax}
+
+We define telescopes
+$$
+\Delta, \Phi \mathrel{\text{::=}} \EMPTY \mid (\name x \OFq q A), \Delta
+$$
+and environments
+$$
+\delta, \phi \mathrel{\text{::=}} \EMPTY \mid t^q, \delta
+$$
+as a syntactic convenience for defining data types. These give rise to telescope abstraction $\Delta \to A$
+\begin{align*}
+  {\EMPTY \to A} &= A\\
+  {(\name x \OFq q A), \Delta \to A} &= \PiT x q A {(\Delta \to A)}
+\end{align*}
+and environment application $\AppTele f \delta$
+\begin{align*}
+  {\AppTele f \EMPTY} &= f\\
+  {\AppTele f {(t^q, \delta)}} &= \AppTele {\App q f t} \delta
+\end{align*}
 
 \section{Type checking}
 
@@ -309,29 +333,66 @@ Note: Idris only restricts the context when introducing a linear variable at amb
 \end{mathpar}
 
 \subsection{Case}
+The aim is to have typing rules for case splits that go beyond the expressivity of eliminators. We would like to end up with something akin to the \textsf{with}-construct of~\cite{Mcbride2004} but with the additional information obtained algorithmicly made explicit. This will require not just a type annotation describing the motive\footnote{Similar to the \href{https://coq.github.io/doc/master/refman/language/core/inductive.html#the-match-with-end-construction}{\texttt{return}-annotation} in Coq.} but also explicit substitutions capturing the result of unification.
+
+Since this is still work-in-progress, we present rules that are close to what is currently implemented but without replicating the construction of the goal type.
 
 \begin{mathpar}
 \inferrule*[Right=Case]{
-  \checkJ \Sigma \Gamma e {p q} {\AppTele {\TyCon {tc}} {q_i} {t_i}} \\
-  \checkJ \Sigma \Gamma \delta p \Delta \\
-  \checkJ \Sigma {\Delta, (\name x \OFq q {\AppTele {\TyCon {tc}} {q_i} {{\name y}_i}})} A \zero \Type \\\\
-  \definition{dc}_i \OF {\Delta_i \to {\App {} {\TyCon {tc}} {\delta_i}}} \in \Sigma\\
-  \Gamma \ENTq {\presence p q} {\definition {dc}}_i\, t_{1} \ldots t_{n_i} \OF \Delta \\
-  \Gamma \mathrel{\textbackslash} p, \name x_i \OFq {q s_i} {A_i} \ENTq {\presence p} e_i \\\\
+  \left( \definition{tc} \OF {\Delta \to \Type} \right) \in \Sigma\\\\
+  \left( \definition{dc}_i \OF {\Phi_i \to {\AppTele {\TyCon {tc}} {\delta_i}}} \right) \in \Sigma\\\\
+  \checkJ \Sigma \Gamma e {p q} {\AppTele {\TyCon {tc}} {\delta}} \\\\
+%  \checkJ \Sigma {\Delta, (\name x \OFq q {\AppTele {\TyCon {tc}} {q_i} {{\name y}_i}})} A \zero \Type \\\\
+  \checkJ \Sigma {\restrictQ \Gamma p, \multQ {\Phi_i} q} {e_i} {\presence p} {?}\\\\
   \presence p = \one \land q = \zero \implies i \leq 1
 } {
   \checkJ \Sigma \Gamma
     {\Case e
       q
-      {\AppTele {\TyCon {tc}} {q_i} {t_i}}
-      {\name x. A}
-      {\delta \OF \Gamma \to \Delta}
-      {\Clause {{\definition {dc}}_i\, x_{1} \ldots x_{n_i}} {e_i}}
+      {\AppTele {\TyCon {tc}} {\delta}}
+      {\Clause {{\definition {dc}}_i~ \Phi_i} {e_i}}
     }
     q
-    {\Sub A e x}
+    {?}
 }
 \end{mathpar}
+
+\begin{mathpar}
+\inferrule*[Right=Case]{
+  \checkJ \Sigma \Gamma t {p q} A \\
+  \checkPatJ \Sigma \Gamma A {l_i} {\Phi_i}\\
+  \checkJ \Sigma {\restrictQ \Gamma p, \multQ {\Phi_i} q} {t_i} {\presence p} {?}\\\\
+  \presence p = \one \land q = \zero \implies i \leq 1
+} {
+  \checkJ \Sigma \Gamma {\Case t q A {\Clause {l_i} {t_i}}} q {?}
+}
+\end{mathpar}
+Note: we currently do not check coverage.
+
+\subsubsection{Patterns}
+\begin{mathpar}
+\inferrule*[Right=Pat-Default]{ } {
+  \checkPatJ \Sigma \Gamma A {\term{\_}} \EMPTY
+}
+\end{mathpar}
+
+\begin{mathpar}
+\inferrule*[Right=Pat-Int]{
+  (\term n \in \mathbb N)
+} {
+  \checkPatJ \Sigma \Gamma {\type{Int}} {\term{n}} \EMPTY
+}
+\end{mathpar}
+
+\begin{mathpar}
+\inferrule*[Right=Pat-DataCon]{
+  \left( \definition{tc} \OF {\Delta \to \Type} \right) \in \Sigma\\\\
+  \left( \definition{dc} \OF {\Phi \to {\AppTele {\TyCon {tc}} \delta}} \right) \in \Sigma
+} {
+  \checkPatJ \Sigma \Gamma {\AppTele {\definition {tc}} \delta} {\definition{dc} ~ \Phi} \Phi
+}
+\end{mathpar}
+Note: this rule is overly restrictive/wrong; the two environments do not need to be identical, only ``compatible''.
 
 \subsection{Constants}
 \begin{mathpar}
@@ -342,9 +403,9 @@ Note: Idris only restricts the context when introducing a linear variable at amb
 
 \begin{mathpar}
 \inferrule*[Right=Int-Const]{
-  (n \in \mathbb N)
+  (\term {n} \in \mathbb N)
 } {
-  \checkJ \Sigma \Gamma {n} p {\type{Int}}
+  \checkJ \Sigma \Gamma {\term {n}} p {\type{Int}}
 }
 \end{mathpar}
 
@@ -363,6 +424,23 @@ Note: Yaffle currently has type-in-type but cumulative universes are on the road
   {\presence p} \leq q
 } {
   \checkJ \Sigma \Gamma {\definition f} p A
+}
+\end{mathpar}
+
+\subsection{Data types}
+\begin{mathpar}
+\inferrule*[Right=TyCon] {
+  \left( \definition{tc} \OF {\Delta \to \Type} \right) \in \Sigma
+} {
+  \checkJ \Sigma \Gamma {\TyCon {tc}} p {\Delta \to \Type}
+}
+\end{mathpar}
+
+\begin{mathpar}
+\inferrule*[Right=DataCon] {
+  \left( \definition{dc} \OF {\Phi \to {\AppTele {\TyCon {tc}} \delta}} \right) \in \Sigma
+} {
+  \checkJ \Sigma \Gamma {\DataCon {dc}} p {\Phi \to {\AppTele {\TyCon {tc}} \delta}}
 }
 \end{mathpar}
 
@@ -387,9 +465,9 @@ Note: Yaffle currently has type-in-type but cumulative universes are on the road
 
 A Yaffle file consists of a sequence of declarations
 $$\Sigma \mathrel{\text{::=}} \EMPTY \mid {\Sigma, d}$$
-which we call well-typed if judgment $\checkDefJ \Sigma$ holds.
+which we call well-typed when judgement $\checkDefJ \Sigma$ holds.
 
-\subsection{Data types}
+We introduce signatures and definitions separately to allow mutually recursive declarations. We do not check termination and also do not prevent re-definition.
 
 \begin{mathpar}
 \inferrule*[Right=Empty] { } {
@@ -397,51 +475,12 @@ which we call well-typed if judgment $\checkDefJ \Sigma$ holds.
 }
 \end{mathpar}
 
-
-\begin{mathpar}
-\inferrule*[Right=Def-TyCon] {
-  \checkJ \Sigma \EMPTY {\PiTele {x_i} {q_i} {T_i} \Type} \zero \Type
-} {
-  \checkDefJ
-  {\Sigma,
-    {\definition{tc} \OF {\PiTele {x_i} {q_i} {T_i} \Type}}
-  }
-}
-\end{mathpar}
-
-\begin{mathpar}
-\inferrule*[Right=Def-DataCon] {
-  \left( \definition{tc} \OF {\PiTele {x_i} {q_i} {T_i} \Type} \right) \in \Sigma\\\\
-  \checkJ \EMPTY {\PiTele {y_j} {r_j} {A_j} {\AppTele {\TyCon {tc}} {q_i} {t_i}}} \zero \Type
-} {
-  \checkDefJ {\Sigma, {\definition{dc} \OF {\PiTele {y_j} {r_j} {A_j} {\AppTele {\TyCon {tc}} {q_i} {t_i}}}}}
-}
-\end{mathpar}
-Note: to keep the presentation simple, we leave data types open to extension. Strict-positivity check has not been implemented yet.
-
-\begin{mathpar}
-\inferrule*[Right=TyCon] {
-  \left( \definition{tc} \OF {\PiTele {x_i} {q_i} {T_i} \Type} \right) \in \Sigma
-} {
-  \checkJ \Sigma \Gamma {\TyCon {tc}} p {\PiTele {x_i} {q_i} {T_i} \Type}
-}
-\end{mathpar}
-
-\begin{mathpar}
-\inferrule*[Right=DataCon] {
-  \left( \definition{dc} \OF {\PiTele {y_j} {r_j} {A_j} {\AppTele {\TyCon {tc}} {q_i} {t_i}}} \right) \in \Sigma
-} {
-  \checkJ \Sigma \Gamma {\DataCon {dc}} p {\PiTele {y_j} {r_j} {A_j} {\AppTele {\TyCon {tc}} {q_i} {t_i}}}
-}
-\end{mathpar}
-
 \subsection{Functions}
 
-Functions signature and definitions are defined separately to allow mutually recursive definitions. We do not check termination and also do not prevent re-definition.
 \begin{mathpar}
 \inferrule*[Right=Sig] {
   \checkDefJ \Sigma\\
-  \checkJ \Sigma \EMPTY A \zero \Type\\
+    \checkJ \Sigma \EMPTY A \zero \Type\\
   (q \in \{\zero, \one\})
 } {
   \checkDefJ {\Sigma, \Sig f q A}
@@ -460,48 +499,67 @@ Functions signature and definitions are defined separately to allow mutually rec
 \end{mathpar}
 The last premise, $\linCheckJ \EMPTY t q \emptyset$, invokes the linearity checker.
 
+\subsection{Data types}
+
+\begin{mathpar}
+\inferrule*[Right=Def-TyCon] {
+  \checkJ \Sigma \EMPTY {\Delta \to \Type} \zero \Type
+} {
+  \checkDefJ
+  {\Sigma,
+    {\definition{tc} \OF {\Delta \to \Type}}
+  }
+}
+\end{mathpar}
+
+\begin{mathpar}
+\inferrule*[Right=Def-DataCon] {
+  \left( \definition{tc} \OF {\Delta \to \Type} \right) \in \Sigma\\\\
+  \checkJ \Sigma \EMPTY {\Phi \to {\AppTele {\TyCon {tc}} \delta}} \zero \Type\\\\
+  $\textsf{length}(\delta) = \textsf{length}(\Delta)$
+} {
+  \checkDefJ {\Sigma, {\definition{dc} \OF \Phi \to {\AppTele {\TyCon {tc}} \delta}}}
+}
+\end{mathpar}
+Note: to keep the presentation simple, we leave data types open to extension. Strict-positivity check has not been implemented yet.
+
 \section{Conversion}
 
-Idris combines CBV-evaluation with an untyped eta-conversion check\footnote{See \href{https://github.com/edwinb/Yaffle/blob/main/src/Core/Evaluate/Normalise.idr}{\texttt{Core.Evaluate.Normalise.evaluate}} and \href{https://github.com/edwinb/Yaffle/blob/main/src/Core/Evaluate/Convert.idr}{\texttt{Core.Evaluate.Convert.convGen}}.}. The plan to make conversion checking typed.
+Idris combines call-by-value evaluation with an untyped (and therefore incomplete) eta-conversion check\footnote{See \href{https://github.com/edwinb/Yaffle/blob/main/src/Core/Evaluate/Normalise.idr}{\texttt{Core.Evaluate.Normalise.evaluate}} and \href{https://github.com/edwinb/Yaffle/blob/main/src/Core/Evaluate/Convert.idr}{\texttt{Core.Evaluate.Convert.convGen}}.}. The plan is to make conversion checking typed.
 
-We present the intended equational theory
-
+The intended equational theory features the following computation rules
 \begin{mathpar}
 \inferrule*[Right=$\beta$] {
   \checkJ \Sigma {\restrictQ \Gamma p, (\name x \OFq q A)} e {\presence p} B\\
   \checkJ \Sigma \Gamma t {pq} A\\
 } {
   \checkEqJ \Sigma \Gamma {\App q {\lam x q A e} t} {\Sub e t x} p {\Sub B t x}
-}
-\end{mathpar}
+}\\
 
-\begin{mathpar}
 \inferrule*[Right=$\eta$] {
   \checkJ \Sigma \Gamma f p {\PiT x q A B}\\
   \name x \not\in {\fv f}
 } {
   \checkEqJ \Sigma \Gamma f {\lam x q A {\App q f {\name x}}} p {\PiT x q A B}
-}
-\end{mathpar}
+}\\
 
-\begin{mathpar}
 \inferrule*[Right=Let-$\delta$] {
   \checkJ \Sigma \Gamma A \zero \Type\\
   \checkJ \Sigma \Gamma t {pq} A\\
   \checkJ \Sigma {\restrictQ \Gamma p, (\name x \OFq q A)} s {\presence p} B
 } {
   \checkEqJ \Sigma \Gamma {\Let x q A t s} {\Sub s t x} p B
-}
-\end{mathpar}
+}\\
 
-\begin{mathpar}
 \inferrule*[Right=Def-$\delta$] {
-  \left( \Def f q A t \right) \in \Sigma\\
+  \left( \Sig f q A \right) \in \Sigma\\
+  \left( \Def f t \right) \in \Sigma\\
   \presence p \leq q
 } {
   \checkEqJ \Sigma \Gamma {\definition f} t p A
 }
 \end{mathpar}
+as well as the usual congruence rules.
 
 \section{Linearity checking}\label{sec:linearity_checking}
 
