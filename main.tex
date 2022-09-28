@@ -333,29 +333,9 @@ Note: Idris only restricts the context when introducing a linear variable at amb
 \end{mathpar}
 
 \subsection{Case}
-The aim is to have typing rules for case splits that go beyond the expressivity of eliminators. We would like to end up with something akin to the \textsf{with}-construct of~\cite{Mcbride2004} but with the additional information obtained algorithmicly made explicit. This will require not just a type annotation describing the motive\footnote{Similar to the \href{https://coq.github.io/doc/master/refman/language/core/inductive.html#the-match-with-end-construction}{\texttt{return}-annotation} in Coq.} but also explicit substitutions capturing the result of unification.
+The aim is to have typing rules for case splits that go beyond the expressivity of eliminators. We would like to end up with something akin to the \textsf{with}-construct of~\cite{Mcbride2004} but with the additional information obtained algorithmicly made explicit. This will require not just a type annotation describing the motive\footnote{Similar to the \href{https://coq.github.io/doc/master/refman/language/core/inductive.html\#the-match-with-end-construction}{\texttt{return}-annotation} in Coq.} but also explicit substitutions capturing the result of unification.
 
 Since this is still work-in-progress, we present rules that are close to what is currently implemented but without replicating the construction of the goal type.
-
-\begin{mathpar}
-\inferrule*[Right=Case]{
-  \left( \definition{tc} \OF {\Delta \to \Type} \right) \in \Sigma\\\\
-  \left( \definition{dc}_i \OF {\Phi_i \to {\AppTele {\TyCon {tc}} {\delta_i}}} \right) \in \Sigma\\\\
-  \checkJ \Sigma \Gamma e {p q} {\AppTele {\TyCon {tc}} {\delta}} \\\\
-%  \checkJ \Sigma {\Delta, (\name x \OFq q {\AppTele {\TyCon {tc}} {q_i} {{\name y}_i}})} A \zero \Type \\\\
-  \checkJ \Sigma {\restrictQ \Gamma p, \multQ {\Phi_i} q} {e_i} {\presence p} {?}\\\\
-  \presence p = \one \land q = \zero \implies i \leq 1
-} {
-  \checkJ \Sigma \Gamma
-    {\Case e
-      q
-      {\AppTele {\TyCon {tc}} {\delta}}
-      {\Clause {{\definition {dc}}_i~ \Phi_i} {e_i}}
-    }
-    q
-    {?}
-}
-\end{mathpar}
 
 \begin{mathpar}
 \inferrule*[Right=Case]{
