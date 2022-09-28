@@ -328,7 +328,7 @@ Note: Idris only restricts the context when introducing a linear variable at amb
 \inferrule*[Right=Let]{
   \checkJ \Sigma \Gamma A \zero \Type\\
   \checkJ \Sigma \Gamma t {p q} A\\
-  \checkJ {\restrictQ \Gamma p, (\name x \OFq q A)} s {\presence p} B
+  \checkJ \Sigma {\restrictQ \Gamma p, (\name x \OFq q A)} s {\presence p} B
 } {
   \checkJ \Sigma \Gamma {\Let x q A t s} p B
 }
