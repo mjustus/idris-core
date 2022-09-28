@@ -556,7 +556,7 @@ The preliminary computation rule for case splitting looks as follows
 }
 \end{mathpar}
 where the $\textsf{Match}$ predicate encodes first-match semantics
-\begin{mathpar}
+\todo[noline]{Abuse of notation: need to turn environment into substitution.}\begin{mathpar}
 \inferrule*[Right=Match-Default]{ } {
   \matchJ {t} {\{\Clause {\term {\_}} {t'}; {\overline{\Clause {l_i} {t_i}}}\}} {t'}
 }\\
