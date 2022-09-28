@@ -337,7 +337,7 @@ The aim is to have typing rules for case splits that go beyond the expressivity 
 
 Since this is still work-in-progress, we present rules that are close to what is currently implemented but without replicating the construction of the goal type.
 
-\begin{mathpar}
+\todo[noline]{Telescope to context conversion.}\begin{mathpar}
 \inferrule*[Right=Case]{
   \checkJ \Sigma \Gamma t {p q} A \\
   \checkPatJ \Sigma \Gamma A {l_i} {\Phi_i}\\
@@ -562,10 +562,16 @@ We record usage of linear variables as a multiset $u \in \mathbb V \to \mathbb N
   $$
   u \setminus {\name x} = \name y \mapsto {\begin{cases}0 & \text{if $\name y = \name x$}\\ u(\name y) & \text{otherwise} \end{cases}}
   $$
+\item union
+  $$
+  u \cup v = \name y \mapsto u(\name y) + v(\name y)
+  $$
 \end{itemize}
 
+\subsection{Variables}
+
 \begin{mathpar}
-\inferrule*[Right=Var]{
+\inferrule*[Right=Lin-Var]{
   (\name x \OFq q A) \in \Gamma\\
   p \leq q
 } {
@@ -573,12 +579,87 @@ We record usage of linear variables as a multiset $u \in \mathbb V \to \mathbb N
 }
 \end{mathpar}
 
+\subsection{Function type}
 \begin{mathpar}
-\inferrule*[Right=Lam]{
-  \linCheckJ {\restrictQ \Gamma p, (\name x \OFq q A)} t {\presence p} u \\
-  pq = \one \implies u(\name x) = 1
+\inferrule*[Right=Lin-Pi]{
+  \linCheckJ \Gamma A {\ceil p} {u_A} \\
+  \linCheckJ {\Gamma, (\name x \OFq q {A})} B {\ceil p} {u_B}
 } {
-  \linCheckJ \Gamma {\lam x q A t} p {u \smallsetminus \name x}
+  \linCheckJ \Gamma {\PiT x q A B} p {u_A \cup ({u_B} \smallsetminus {\name x})}
+}
+\end{mathpar}
+with
+\begin{align*}
+\ceil \zero &= \zero\\
+\ceil \one &= \any\\
+\ceil \any &= \any
+\end{align*}
+Note that $\ceil p = \multQ \any p$.
+
+Intuitively, this rule forbids\todo[noline]{Ask Edwin for an explanation.} usage of linear variables inside function types that may be present at runtime.
+
+\subsection{Function abstraction}
+
+\begin{mathpar}
+\inferrule*[Right=Lin-Lam]{
+  \linCheckJ {\restrictQ \Gamma {p}, (\name x \OFq q A)} t {\presence p} u \\
+  \presence p q = \one \implies u(\name x) = 1
+} {
+  \linCheckJ \Gamma {\lam x q A t} p {u \smallsetminus {\name x}}
+}
+\end{mathpar}
+
+\subsection{Function application}
+\begin{mathpar}
+\inferrule*[Right=Lin-App] {
+  \linCheckJ \Gamma f p {u_f} \\
+  \linCheckJ \Gamma t {pq} {u_t}
+} {
+  \linCheckJ \Gamma {\App q f t} p {{u_f} \cup {u_t}}
+}
+\end{mathpar}
+
+\subsection{Let binding}
+\begin{mathpar}
+\inferrule*[Right=Lin-Let]{
+  \linCheckJ \Gamma t {p q} {u_t}\\
+  \linCheckJ {\restrictQ \Gamma p, (\name x \OFq q A)} s {\presence p} {u_s}\\
+  \presence p q = \one \implies u_s(\name x) = 1
+} {
+  \linCheckJ \Gamma {\Let x q A t s} p {u_t \cup (u_s \smallsetminus {\name x})}
+}
+\end{mathpar}
+
+\subsection{Case}
+\todo[noline]{Telescopic abuse of notation.}\begin{mathpar}
+\inferrule*[Right=Lin-Case]{
+  \linCheckJ \Gamma t {p q} {u_t} \\
+  \checkPatJ \Sigma \Gamma A {l_i} {\Phi_i}\\
+  \linCheckJ {\restrictQ \Gamma p, \multQ {\Phi_i} q} {t_i} {\presence p} {u_i}\\\\
+  (\name x \OFq {q_i} A) \in \Phi_i \land \presence p q_i q = \one \implies u_i(\name x) = 1\\
+  \presence p = \one \land q = \zero \implies i \leq 1
+} {
+  \linCheckJ \Gamma {\Case t q A {\Clause {l_i} {t_i}}} p {u_t \cup \bigcup_i {(u_i \smallsetminus \Phi_i)}}
+}
+\end{mathpar}
+
+\subsection{Constants}
+\begin{mathpar}
+\inferrule*[Right=Lin-Int]{ } {
+  \linCheckJ \Gamma {\type{Int}} p \emptyset
+}
+\end{mathpar}
+
+\begin{mathpar}
+\inferrule*[Right=Lin-Int-Const]{ } {
+  \linCheckJ \Gamma {\term {n}} p \emptyset
+}
+\end{mathpar}
+
+\subsection{Universe}
+\begin{mathpar}
+\inferrule*[Right=Lin-Type]{ } {
+  \linCheckJ \Gamma \Type p \emptyset
 }
 \end{mathpar}
 
