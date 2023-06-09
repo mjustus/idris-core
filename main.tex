@@ -618,6 +618,37 @@ where the $\textsf{Match}$ predicate encodes first-match semantics
 }
 \end{mathpar}
 
+\subsection{Eta-expansion for records}
+
+The core type theory of Idris does not have records. Instead, records are desugared into single constructor data types. So for the purpose of this note we will refer to the latter as records. Although currently not implemented, strengthening conversion checking by performing eta-expansion on records is in the planning.
+
+Unfortunately, naively adding an eta-rule for records to the type theory clashes with linearity checking. Consider a record
+\begin{code}
+record R : Type
+  constructor MkR
+  1 x : Int
+  1 y : Int
+\end{code}
+and an instance of the usual eta-law on a linear record variable $(\name r \OFq \one \texttt{R})$ at ambient quantity $\one$
+\begin{mathpar}
+\inferrule* {
+  (\name r \OFq \one \texttt{R}) \in \Gamma
+} {
+  \checkEqJ \Sigma \Gamma {\name r} {\App \one {\App \one {\texttt{MkR}} {{\name r}.\texttt{x}}} {{\name r}.\texttt{y}} } \one \texttt{R}
+}
+\end{mathpar}
+Going from left to right, it is no longer immediately obvious that $\name r$ is used linearly without also checking whether each linear field\footnote{The types of Idris' generated field projection functions, e.g. ${.\texttt{x}} \OF {\PiT r \any {\texttt{R}} \texttt{Int}}$, already rule out application to linear variables or compound expressions that make use of linear variables but that is beside the point.} \texttt{R} has been used precisely once.
+
+This should not stop us, however, from introducing eta-expansion when no linear variables are involved. The following rule
+\begin{mathpar}
+\inferrule* {
+  \checkJ \Sigma \Gamma e {\multQ \any p} \texttt{R}
+} {
+  \checkEqJ \Sigma \Gamma e {\App \one {\App \one {\texttt{MkR}} {e.{\texttt{x}}}} {e.{\texttt{y}}} } p \texttt{R}
+}
+\end{mathpar}
+corresponds to the usual eta-law but rules out any linear variables being present in $e$.
+
 \section{Linearity checking}\label{sec:linearity_checking}
 
 We record usage of linear variables as a multiset $u \in \mathbb V \to \mathbb N$ with the following operations:
