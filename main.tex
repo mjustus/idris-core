@@ -59,6 +59,7 @@
 \newcommand{\EMPTY}{.}
 
 \newcommand{\checkJ}[5]{#1; #2 \ENT {#3} \OFq {#4} #5}
+\newcommand{\checkCtxJ}[3]{#1; #2 \ENT {#3}}
 
 \newcommand{\checkPatJ}[5]{#1; #2; #3 \ENT {#4} \OF #5}
 \newcommand{\matchJ}[3]{\textsf{Match}(#1, #2, #3)}
@@ -530,8 +531,8 @@ The last premise, $\linCheckJ \EMPTY t q \emptyset$, invokes the linearity check
 \begin{mathpar}
 \inferrule*[Right=Def-DataCon] {
   \left( \definition{tc} \OF {\Delta \to \Type} \right) \in \Sigma\\\\
-  \checkJ \Sigma \EMPTY {\Phi \to {\AppTele {\TyCon {tc}} \delta}} \zero \Type\\\\
-  \textsf{length}(\delta) = \textsf{length}(\Delta)
+  \checkCtxJ \Sigma \EMPTY \Phi\\
+  \checkJ \Sigma \Phi \delta \zero \Delta
 } {
   \checkDefJ {\Sigma, {\definition{dc} \OF \Phi \to {\AppTele {\TyCon {tc}} \delta}}}
 }
