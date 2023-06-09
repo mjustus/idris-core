@@ -263,10 +263,10 @@ and environments
 $$
 \delta, \phi \mathrel{\text{::=}} \EMPTY \mid t^q, \delta
 $$
-as a syntactic convenience for defining data types. These give rise to telescope abstraction $\Delta \to A$
+as a syntactic convenience for defining data types. These give rise to telescope abstraction $\Delta \to B$
 \begin{align*}
-  {\EMPTY \to A} &= A\\
-  {(\name x \OFq q A), \Delta \to A} &= \PiT x q A {(\Delta \to A)}
+  {\EMPTY \to B} &= B\\
+  {(\name x \OFq q A), \Delta \to B} &= \PiT x q A {(\Delta \to B)}
 \end{align*}
 and environment application $\AppTele f \delta$
 \begin{align*}
