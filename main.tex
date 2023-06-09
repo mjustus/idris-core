@@ -360,6 +360,30 @@ Since this is still work-in-progress, we present rules that are close to what is
 \end{mathpar}
 Note: we currently do not check coverage.
 
+\subsubsection{Stuck function calls}
+
+Function definition by pattern matching requires maintaining what amounts to a suspended substitution on function applications that do not yet match a particular clause. For example, the open term \idrisinline{f 5 n}
+\begin{code}
+  f : Nat -> Nat -> Nat
+  f m Z = b_Z
+  f m n@(S n') = b_S
+
+  g : Nat -> Nat -> Nat
+  g m n =
+    case n of
+      Z => b_Z
+      S n' => b_S
+\end{code}
+in context \idrisinline{(n : Nat)} is stuck whereas the application \idrisinline {g 5 n} using the corresponding function defined by case split reduces immediately to its body
+\begin{code}
+  case n of
+    Z => b_Z [5/m]
+    S n' => b_S [5/m]
+\end{code}
+resulting in a stronger equational theory.
+
+Ideally, we would want the equational strength of the latter combined with the expressiveness afforded by with-abstraction provided by the former.
+
 \subsubsection{Patterns}
 \begin{mathpar}
 \inferrule*[Right=Pat-Default]{ } {
