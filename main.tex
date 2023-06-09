@@ -81,6 +81,7 @@
 
 \newcommand{\restrictQ}[2]{#1 \setminus #2}
 \newcommand{\multQ}[2]{{#1} \cdot {#2}}
+\newcommand{\multQE}[2]{{#1} {#2}}
 \newcommand{\restrictAny}[1]{\restrictQ {#1} \any}
 
 \newcommand{\name}[1]{{\textcolor{neutral}{#1}}}
@@ -332,7 +333,7 @@ Note: Idris only restricts the context when introducing a linear variable at amb
 \begin{mathpar}
 \inferrule*[Right=Let]{
   \checkJ \Sigma \Gamma A \zero \Type\\
-  \checkJ \Sigma \Gamma t {p q} A\\
+  \checkJ \Sigma \Gamma t {\multQE p q} A\\
   \checkJ \Sigma {\restrictQ \Gamma p, (\name x \OFq q A)} s {\presence p} B
 } {
   \checkJ \Sigma \Gamma {\Let x q A t s} p B
@@ -346,7 +347,7 @@ Since this is still work-in-progress, we present rules that are close to what is
 
 \todo[noline]{Telescope to context conversion.}\begin{mathpar}
 \inferrule*[Right=Case]{
-  \checkJ \Sigma \Gamma t {p q} A \\
+  \checkJ \Sigma \Gamma t {\multQE p q} A \\
   \checkPatJ \Sigma \Gamma A {l_i} {\Phi_i}\\
   \checkJ \Sigma {\restrictQ \Gamma p, \multQ {\Phi_i} q} {t_i} {\presence p} {?}\\\\
   \presence p = \one \land q = \zero \implies i \leq 1
@@ -551,7 +552,7 @@ as well as the usual congruence rules.
 The preliminary computation rule for case splitting looks as follows
 \begin{mathpar}
 \inferrule*[Right=Case-$\beta$]{
-  \checkJ \Sigma \Gamma t {p q} A \\
+  \checkJ \Sigma \Gamma t {\multQE p q} A \\
   \checkPatJ \Sigma \Gamma A {l_i} {\Phi_i}\\
   \checkJ \Sigma {\restrictQ \Gamma p, \multQ {\Phi_i} q} {t_i} {\presence p} {?}\\\\
   \presence p = \one \land q = \zero \implies i \leq 1\\\\
@@ -670,7 +671,7 @@ Intuitively, this rule forbids\todo[noline]{Ask Edwin for an explanation.} usage
 \subsection{Let binding}
 \begin{mathpar}
 \inferrule*[Right=Lin-Let]{
-  \linCheckJ \Gamma t {p q} {u_t}\\
+  \linCheckJ \Gamma t {\multQE p q} {u_t}\\
   \linCheckJ {\restrictQ \Gamma p, (\name x \OFq q A)} s {\presence p} {u_s}\\
   \presence p q = \one \implies u_s(\name x) = 1
 } {
@@ -681,7 +682,7 @@ Intuitively, this rule forbids\todo[noline]{Ask Edwin for an explanation.} usage
 \subsection{Case}
 \todo[noline]{Telescopic abuse of notation.}\begin{mathpar}
 \inferrule*[Right=Lin-Case]{
-  \linCheckJ \Gamma t {p q} {u_t} \\
+  \linCheckJ \Gamma t {\multQE p q} {u_t} \\
   \checkPatJ \Sigma \Gamma A {l_i} {\Phi_i}\\
   \linCheckJ {\restrictQ \Gamma p, \multQ {\Phi_i} q} {t_i} {\presence p} {u_i}\\\\
   (\name x \OFq {q_i} A) \in \Phi_i \land \presence p q_i q = \one \implies u_i(\name x) = 1\\
