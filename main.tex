@@ -117,7 +117,9 @@
 \newcommand{\mult}{\mathbin{\textcolor{type}{\times}}}
 \newcommand{\proj}[1]{\mathop{\textcolor{definition}{\pi_{#1}}}}
 \newcommand{\cons}[2]{\textcolor{term}{[}#1\textcolor{term}{,}\, #2\textcolor{term}{]}}
-\newcommand{\nil}{\textcolor{term}{[]}}
+
+\newcommand{\NIL}{\EMPTY}
+\newcommand{\CONS}[3]{{#2} \mathpunct{\prescript{#1}{}{,}} {#3}}
 
 \newcommand{\SigmaT}[3]{\textcolor{type}{(}\name #1 \OF #2 \textcolor{type}{)} \mult #3}
 \newcommand{\PiT}[4]{\textcolor{type}{(}\name #1 \OF^{#2} #3 \textcolor{type}{)} \To #4}
@@ -261,7 +263,7 @@ $$
 $$
 and environments
 $$
-\delta, \phi \mathrel{\text{::=}} \EMPTY \mid t^q, \delta
+\delta, \phi \mathrel{\text{::=}} \NIL \mid \CONS q t \delta
 $$
 as a syntactic convenience for defining data types. These give rise to telescope abstraction $\Delta \to B$
 \begin{align*}
