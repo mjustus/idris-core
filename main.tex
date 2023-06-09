@@ -685,10 +685,11 @@ Intuitively, this rule forbids\todo[noline]{Ask Edwin for an explanation.} usage
   \linCheckJ \Gamma t {\multQE p q} {u_t} \\
   \checkPatJ \Sigma \Gamma A {l_i} {\Phi_i}\\
   \linCheckJ {\restrictQ \Gamma p, \multQ {\Phi_i} q} {t_i} {\presence p} {u_i}\\\\
-  (\name x \OFq {q_i} A) \in \Phi_i \land \presence p q_i q = \one \implies u_i(\name x) = 1\\
+  (\name x \OFq {q_i} A) \in \Phi_i \land \presence p q_i q = \one \implies u_i(\name x) = 1\\\\
+  \forall i, j.~ (u_i \smallsetminus \Phi_i) = (u_j \smallsetminus \Phi_j)\\\\
   \presence p = \one \land q = \zero \implies i \leq 1
 } {
-  \linCheckJ \Gamma {\Case t q A {\Clause {l_i} {t_i}}} p {u_t \cup \bigcup_i {(u_i \smallsetminus \Phi_i)}}
+  \linCheckJ \Gamma {\Case t q A {\Clause {l_i} {t_i}}} p {u_t \cup {\bigcup_i (u_i \smallsetminus \Phi_i)}}
 }
 \end{mathpar}
 
